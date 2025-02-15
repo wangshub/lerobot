@@ -5,6 +5,8 @@ import numpy as np
 import cv2
 import rosbag
 from pprint import pprint
+import os
+import glob
 
 
 # ================ 机器人关节信息定义 ================
@@ -29,7 +31,10 @@ DEFAULT_JOINT_NAMES = {
 }
 
 # ================ 机器人话题信息定义 ================
-DEFAULT_CAMERA_NAMES = ["camera", "cam_high", "cam_low", "cam_right_wrist", "cam_left_wrist"]
+DEFAULT_CAMERA_NAMES = ["camera", 
+                        "camera_chest", 
+                        "camera_right_wrist", 
+                        "camera_left_wrist"]
 
 # ================ 数据处理函数定义 ==================
 
@@ -177,14 +182,14 @@ class KuavoRosbagReader:
                 "msg_process_fn": self._msg_processer.process_color_image,
             }
             # observation.images.{camera}.depth => depth images
-            self._topic_process_map[f"observation.images.{camera}.depth"] = {
+            self._topic_process_map[f"observation.{camera}.depth"] = {
                 "topic": f"/{camera}/depth/image_rect_raw",
                 "msg_process_fn": self._msg_processer.process_depth_image,
             }
 
     def load_raw_rosbag(self, bag_file: str):
         bag = rosbag.Bag(bag_file)      
-        self.print_bag_info(bag)  
+        # self.print_bag_info(bag)  
         return bag
     
     def print_bag_info(self, bag: rosbag.Bag):
@@ -210,11 +215,34 @@ class KuavoRosbagReader:
                 data[key].append(msg_process_fn(msg))
         return data
     
+    def list_bag_files(self, bag_dir: str):
+        bag_files = glob.glob(os.path.join(bag_dir, '*.bag'))
+        bag_files.sort()
+        return bag_files
+    
+    def process_rosbag_dir(self, bag_dir: str):
+        all_data = []
+        
+        # 按照文件名排序，获取 bag 文件列表
+        bag_files = self.list_bag_files(bag_dir)
+        
+        episode_id = 0
+        for bf in bag_files:
+            print(f"Processing bag file: {bf}")
+            episode_data = self.process_rosbag(bf)
+            all_data.append(episode_data)
+        
+        return all_data
+    
     
 
 if __name__ == '__main__':
     bag_file = '/Users/wason/Code/RobotEmbodiedData/lerobot/data/testcamera/00001/testcamera_20250213_193331.bag'
+    bag_dir = '/Users/wason/Code/RobotEmbodiedData/lerobot/data/testcamera2/'
     reader = KuavoRosbagReader()
-    data = reader.process_rosbag(bag_file)
-    print(data.keys())
+    
+    reader.process_rosbag_dir(bag_dir)
+    
+    # data = reader.process_rosbag(bag_file)
+    # print(data.keys())
 
