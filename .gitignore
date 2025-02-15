@@ -13,6 +13,9 @@ outputs
 # VS Code
 .vscode
 
+# Pycharm
+.idea/
+
 # HPC
 nautilus/*.yaml
 *.key
