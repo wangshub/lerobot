@@ -19,22 +19,6 @@ from lerobot.common.datasets.utils import (
 )
 from lerobot.common.datasets.video_utils import VideoFrame
 
-class KuavoBagDataset:
-    def __init__(self):
-        self._topic_process_map = {
-            "observation.state": {
-                "topic": "/sensors_data_raw",
-                "msg_process_fn": self.process_sensors_data_raw,
-            },
-            "action": {
-                "topic": "/joint_cmd",
-                "msg_process_fn": self.process_joint_cmd,
-            },
-            "observation.imu": {
-                "topic": "/sensors_data_raw",
-                "msg_process_fn": self.process_sensors_data_raw_extract_imu,
-            }
-        }
 
 
 def check_format(raw_dir: Path) -> bool:

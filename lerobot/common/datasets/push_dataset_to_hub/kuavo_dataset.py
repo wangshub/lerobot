@@ -3,8 +3,8 @@
 # pip install roslz4 --extra-index-url https://rospypi.github.io/simple/
 import numpy as np
 import cv2
-from bagpy import bagreader
 import rosbag
+from pprint import pprint
 
 
 # ================ 机器人关节信息定义 ================
@@ -173,7 +173,7 @@ class KuavoRosbagReader:
         for camera in DEFAULT_CAMERA_NAMES:
             # observation.images.{camera}.depth  => color images
             self._topic_process_map[f"observation.{camera}"] = {
-                "topic": f"/{camera}/image_raw",
+                "topic": f"/{camera}/color/image_raw",
                 "msg_process_fn": self._msg_processer.process_color_image,
             }
             # observation.images.{camera}.depth => depth images
@@ -183,13 +183,38 @@ class KuavoRosbagReader:
             }
 
     def load_raw_rosbag(self, bag_file: str):
-        pass
+        bag = rosbag.Bag(bag_file)      
+        self.print_bag_info(bag)  
+        return bag
+    
+    def print_bag_info(self, bag: rosbag.Bag):
+        pprint(bag.get_type_and_topic_info().topics)
+    
+    def process_rosbag(self, bag_file: str):
+        """
+        Process the rosbag file and return the processed data.
+
+        Args:
+            bag_file (str): The path to the rosbag file.
+
+        Returns:
+            Dict: The processed data.
+        """
+        bag = self.load_raw_rosbag(bag_file)
+        data = {}
+        for key, topic_info in self._topic_process_map.items():
+            topic = topic_info["topic"]
+            msg_process_fn = topic_info["msg_process_fn"]
+            data[key] = []
+            for _, msg, t in bag.read_messages(topics=topic):
+                data[key].append(msg_process_fn(msg))
+        return data
+    
+    
 
 if __name__ == '__main__':
     bag_file = '/Users/wason/Code/RobotEmbodiedData/lerobot/data/testcamera/00001/testcamera_20250213_193331.bag'
-    bag = rosbag.Bag(bag_file)
-    index = 0
-    for topic, msg, t in bag.read_messages(topics='/sensors_data_raw'):
-        header = msg.header
-        pass
+    reader = KuavoRosbagReader()
+    data = reader.process_rosbag(bag_file)
+    print(data.keys())
 
