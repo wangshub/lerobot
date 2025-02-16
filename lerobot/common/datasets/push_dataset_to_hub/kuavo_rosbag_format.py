@@ -6,7 +6,7 @@ Contains utilities to process raw data format from kuavo rosbag
 import re
 import warnings
 from pathlib import Path
-
+import gc
 import pandas as pd
 import numpy as np
 import tqdm
@@ -88,6 +88,7 @@ def load_from_raw(
     for ep_idx in tqdm.tqdm(ep_ids):
         bag_data = bag_reader.process_rosbag(bag_files[ep_idx])
         ep_dict = {}
+        num_frames = len(bag_data['action'])
         
         for img_key in get_cameras(bag_data):
             if video:
@@ -111,12 +112,22 @@ def load_from_raw(
                 ep_dict[img_key] = [
                     {"path": f"videos/{fname}", "timestamp": msg['timestamp']} for msg in bag_data[img_key]
                 ]
-                
-                pass
         
-        # for k, v in bag_data.items():
-        #     print(f"Key: {k}, Value: {len(v)}")
-    
+            # 关节轨迹
+            ep_dict["observation.state"] = np.array([msg['data'] for msg in bag_data['observation.state']])
+            # 关节动作
+            ep_dict["action"] = np.array([msg['data'] for msg in bag_data['action']])
+            ep_dict["episode_index"] = torch.tensor([ep_idx] * num_frames)
+            ep_dict["frame_index"] = torch.arange(0, num_frames, 1)
+            ep_dict["timestamp"] = torch.arange(0, num_frames, 1) / fps
+            
+            # last step of demonstration is considered done
+            ep_dicts.append(ep_dict)
+        gc.collect()
+        
+    data_dict = concatenate_episodes(ep_dicts)
+    total_frames = data_dict["frame_index"].shape[0]
+    data_dict["index"] = torch.arange(0, total_frames, 1)
     return data_dict
 
 

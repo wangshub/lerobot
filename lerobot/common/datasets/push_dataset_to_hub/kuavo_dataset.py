@@ -114,6 +114,18 @@ class KuavoMsgProcesser:
 
     @staticmethod
     def process_sensors_data_raw_extract_arm(msg):
+        """
+        Processes raw joint state data from a given message by extracting the portion relevant to the arm.
+
+        Parameters:
+            msg: The input message containing joint state information.
+
+        Returns:
+            dict: A dictionary with processed joint state data. The 'data' field is sliced to include only indices 12 through 25.
+
+        Notes:
+            This function uses KuavoMsgProcesser.process_joint_state to initially process the input message and then extracts the specific range of data for further use.
+        """
         res = KuavoMsgProcesser.process_joint_state(msg)
         res["data"] = res["data"][12:26]
         return res
@@ -189,7 +201,7 @@ class KuavoRosbagReader:
 
     def load_raw_rosbag(self, bag_file: str):
         bag = rosbag.Bag(bag_file)      
-        # self.print_bag_info(bag)  
+        # self.print_bag_info(bag)
         return bag
     
     def print_bag_info(self, bag: rosbag.Bag):
