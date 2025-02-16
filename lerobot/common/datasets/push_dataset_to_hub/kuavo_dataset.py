@@ -225,7 +225,38 @@ class KuavoRosbagReader:
             data[key] = []
             for _, msg, t in bag.read_messages(topics=topic):
                 data[key].append(msg_process_fn(msg))
-        return data
+                
+        data_aligned = self.align_frame_data(data)
+        return data_aligned
+    
+    def align_frame_data(self, data: dict, ref_key="observation.camera"):
+        """数据帧率对齐，高频关节和动作数据向底盘摄像头数据对齐"""
+        # 以 observation.camera 的帧数作为对齐的标准
+        
+        if ref_key not in data or len(data[ref_key]) == 0:
+            raise ValueError("参考数据 observation.camera 不存在或为空")
+        
+        target_length = len(data[ref_key])
+        aligned_data = {}
+
+        # 对每个数据按照 target_length 采样
+        for key, frames in data.items():
+            orig_length = len(frames)
+            if orig_length == 0:
+                aligned_data[key] = []
+                continue
+            if orig_length == target_length:
+                aligned_data[key] = frames
+            else:
+                new_frames = []
+                for i in range(target_length):
+                    # 计算采样的索引，保证取首尾和均匀采样中间帧
+                    idx = int(round(i * (orig_length - 1) / (target_length - 1)))
+                    new_frames.append(frames[idx])
+                aligned_data[key] = new_frames
+            print(f"Aligned {key}: {orig_length} -> {len(aligned_data[key])}")
+        return aligned_data
+    
     
     def list_bag_files(self, bag_dir: str):
         bag_files = glob.glob(os.path.join(bag_dir, '*.bag'))
@@ -253,8 +284,10 @@ if __name__ == '__main__':
     bag_dir = '/Users/wason/Code/RobotEmbodiedData/lerobot/data/testcamera2/'
     reader = KuavoRosbagReader()
     
-    reader.process_rosbag_dir(bag_dir)
+    # reader.process_rosbag_dir(bag_dir)
     
-    # data = reader.process_rosbag(bag_file)
+    data_raw = reader.process_rosbag(bag_file)
+    data_aligned = reader.align_frame_data(data_raw)
+    
     # print(data.keys())
 

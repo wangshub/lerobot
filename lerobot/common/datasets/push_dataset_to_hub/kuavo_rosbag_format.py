@@ -128,12 +128,43 @@ def load_from_raw(
     data_dict = concatenate_episodes(ep_dicts)
     total_frames = data_dict["frame_index"].shape[0]
     data_dict["index"] = torch.arange(0, total_frames, 1)
+    
+    # fix the data type
+    data_dict["observation.state"] = np.array(data_dict["observation.state"])
+    data_dict["action"] = np.array(data_dict["action"])
+    
     return data_dict
 
 
 def to_hf_dataset(data_dict, video) -> Dataset:
     """Convert the data to Hugging Face dataset format"""
-    pass
+    features = {}
+    keys = [key for key in data_dict if "observation.camera" in key]
+    for key in keys:
+        if video:
+            features[key] = VideoFrame()
+        else:
+            features[key] = Image()
+
+    features["observation.state"] = Sequence(
+        length=data_dict["observation.state"].shape[1], feature=Value(dtype="float32", id=None)
+    )
+    features["action"] = Sequence(
+        length=data_dict["action"].shape[1], feature=Value(dtype="float32", id=None)
+    )
+    features["episode_index"] = Value(dtype="int64", id=None)
+    features["frame_index"] = Value(dtype="int64", id=None)
+    features["timestamp"] = Value(dtype="float32", id=None)
+    features["index"] = Value(dtype="int64", id=None)
+    # features["episode_data_index_from"] = Value(dtype="int64", id=None)
+    # features["episode_data_index_to"] = Value(dtype="int64", id=None)
+    
+    hf_dataset = Dataset.from_dict(data_dict, features=Features(features))
+    hf_dataset.set_transform(hf_transform_to_torch)
+    return hf_dataset
+
+    
+    
 
 def from_raw_to_lerobot_format(
     raw_dir: Path,
@@ -161,7 +192,8 @@ if __name__ == '__main__':
     # sanity check
     check_format(Path(bag_dir))
     
-    load_from_raw(Path(bag_dir), Path(video_dir), fps, video, None, None)
+    data_dict = load_from_raw(Path(bag_dir), Path(video_dir), fps, video, None, None)
+    hf_dataset = to_hf_dataset(data_dict, video)
     
     # data_dict = load_from_raw(raw_dir, videos_dir, fps, video, episodes, encoding)
     # hf_dataset = to_hf_dataset(data_dict, video)
