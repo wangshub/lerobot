@@ -19,7 +19,7 @@ import tqdm
 
 from lerobot.common.datasets.push_dataset_to_hub.kuavo_dataset import (
     KuavoRosbagReader,
-    DEFAULT_JOINT_NAMES,
+    DEFAULT_JOINT_NAMES_LIST,
     DEFAULT_CAMERA_NAMES
     )
 
@@ -34,6 +34,21 @@ class DatasetConfig:
 
 DEFAULT_DATASET_CONFIG = DatasetConfig()
 
+
+def get_cameras(bag_data: dict) -> list[str]:
+    """
+    /camera/color/camera_info           : sensor_msgs/CameraInfo
+    /camera/color/image_raw             : sensor_msgs/Image     
+    /camera/depth/camera_info           : sensor_msgs/CameraInfo
+    /camera/depth/image_rect_raw        : sensor_msgs/Image     
+    """
+    cameras = []
+    for k in bag_data.keys():
+        if 'camera' in k and len(bag_data[k]) > 0:
+            cameras.append(k)
+    return cameras
+
+
 def create_empty_dataset(
     repo_id: str,
     robot_type: str,
@@ -43,8 +58,13 @@ def create_empty_dataset(
     has_effort: bool = False,
     dataset_config: DatasetConfig = DEFAULT_DATASET_CONFIG,
 ) -> LeRobotDataset:
-    motors = DEFAULT_JOINT_NAMES
-    cameras = DEFAULT_CAMERA_NAMES
+    
+    motors = DEFAULT_JOINT_NAMES_LIST
+    # TODO: auto detect cameras
+    cameras = [
+        'camera',
+        # 'camera.depth',
+    ]
 
     features = {
         "observation.state": {
@@ -82,22 +102,32 @@ def create_empty_dataset(
         }
 
     for cam in cameras:
-        features[f"observation.images.{cam}"] = {
-            "dtype": mode,
-            "shape": (3, 480, 640),
-            "names": [
-                "channels",
-                "height",
-                "width",
-            ],
-        }
+        if 'depth' in cam:
+            features[f"observation.images.{cam}"] = {
+                "dtype": mode,
+                "shape": (480, 640),
+                "names": [
+                    "height",
+                    "width",
+                ],
+            }
+        else:
+            features[f"observation.images.{cam}"] = {
+                "dtype": mode,
+                "shape": (3, 480, 640),
+                "names": [
+                    "channels",
+                    "height",
+                    "width",
+                ],
+            }
 
     if Path(LEROBOT_HOME / repo_id).exists():
         shutil.rmtree(LEROBOT_HOME / repo_id)
 
     return LeRobotDataset.create(
         repo_id=repo_id,
-        fps=50,
+        fps=30,
         robot_type=robot_type,
         features=features,
         use_videos=dataset_config.use_videos,
@@ -106,22 +136,6 @@ def create_empty_dataset(
         image_writer_threads=dataset_config.image_writer_threads,
         video_backend=dataset_config.video_backend,
     )
-
-
-
-def get_cameras(bag_data: dict) -> list[str]:
-    """
-    /camera/color/camera_info           : sensor_msgs/CameraInfo
-    /camera/color/image_raw             : sensor_msgs/Image     
-    /camera/depth/camera_info           : sensor_msgs/CameraInfo
-    /camera/depth/image_rect_raw        : sensor_msgs/Image     
-    """
-    cameras = []
-    for k in bag_data.keys():
-        if 'camera' in k and len(bag_data[k]) > 0:
-            cameras.append(k)
-    return cameras
-
 
 def load_raw_images_per_camera(bag_data: dict) -> dict[str, np.ndarray]:
     imgs_per_cam = {}
@@ -138,8 +152,8 @@ def load_raw_episode_data(
     bag_reader = KuavoRosbagReader()
     bag_data = bag_reader.process_rosbag(ep_path)
     
-    state = np.array([msg['data'] for msg in bag_data['observation.state']])
-    action = np.array([msg['data'] for msg in bag_data['action']])
+    state = np.array([msg['data'] for msg in bag_data['observation.state']], dtype=np.float32)
+    action = np.array([msg['data'] for msg in bag_data['action']], dtype=np.float32)
     
     velocity = None
     effort = None
@@ -147,6 +161,16 @@ def load_raw_episode_data(
     imgs_per_cam = load_raw_images_per_camera(bag_data)
     
     return imgs_per_cam, state, action, velocity, effort
+
+
+def diagnose_frame_data(data):
+    for k, v in data.items():
+        print(f"Field: {k}")
+        print(f"  Shape    : {v.shape}")
+        print(f"  Dtype    : {v.dtype}")
+        print(f"  Type     : {type(v).__name__}")
+        print("-" * 40)
+
 
 def populate_dataset(
     dataset: LeRobotDataset,
@@ -165,8 +189,8 @@ def populate_dataset(
         
         for i in range(num_frames):
             frame = {
-                "observation.state": state[i],
-                "action": action[i],
+                "observation.state": torch.from_numpy(state[i]).type(torch.float32),
+                "action": torch.from_numpy(action[i]).type(torch.float32),
             }
             
             for camera, img_array in imgs_per_cam.items():
@@ -176,7 +200,8 @@ def populate_dataset(
                 frame["observation.velocity"] = velocity[i]
             if effort is not None:
                 frame["observation.effort"] = effort[i]   
-                
+            
+            # diagnose_frame_data(frame)
             dataset.add_frame(frame)
             
         dataset.save_episode(task=task)
@@ -218,13 +243,8 @@ def port_kuavo_rosbag(
         task=task,
         episodes=episodes,
     )
-    pass
+    dataset.consolidate()
     
-    
-    
-    
-
-
 
 
 if __name__ == "__main__":

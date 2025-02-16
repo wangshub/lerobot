@@ -23,7 +23,7 @@ DEFAULT_HEAD_JOINT_NAMES = [
     "head_yaw", "head_pitch"
 ]
 
-DEFAULT_JOINT_NAMES = DEFAULT_LEG_JOINT_NAMES + DEFAULT_ARM_JOINT_NAMES + DEFAULT_HEAD_JOINT_NAMES
+DEFAULT_JOINT_NAMES_LIST = DEFAULT_LEG_JOINT_NAMES + DEFAULT_ARM_JOINT_NAMES + DEFAULT_HEAD_JOINT_NAMES
 
 DEFAULT_JOINT_NAMES = {
     "full_joint_names": DEFAULT_LEG_JOINT_NAMES + DEFAULT_ARM_JOINT_NAMES + DEFAULT_HEAD_JOINT_NAMES,
@@ -196,10 +196,10 @@ class KuavoRosbagReader:
                 "msg_process_fn": self._msg_processer.process_color_image,
             }
             # observation.images.{camera}.depth => depth images
-            self._topic_process_map[f"{camera}.depth"] = {
-                "topic": f"/{camera}/depth/image_rect_raw",
-                "msg_process_fn": self._msg_processer.process_depth_image,
-            }
+            # self._topic_process_map[f"{camera}.depth"] = {
+            #     "topic": f"/{camera}/depth/image_rect_raw",
+            #     "msg_process_fn": self._msg_processer.process_depth_image,
+            # }
 
     def load_raw_rosbag(self, bag_file: str):
         bag = rosbag.Bag(bag_file)      
