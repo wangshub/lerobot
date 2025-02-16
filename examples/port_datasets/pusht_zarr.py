@@ -130,7 +130,7 @@ def calculate_reward(coverage: float, success_threshold: float):
     return np.clip(coverage / success_threshold, 0, 1)
 
 
-def main(raw_dir: Path, repo_id: str, mode: str = "video", push_to_hub: bool = True):
+def main(raw_dir: Path, repo_id: str, mode: str = "video", push_to_hub: bool = False):
     if mode not in ["video", "image", "keypoints"]:
         raise ValueError(mode)
 
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     # modes = ["image"]
     # modes = ["keypoints"]
 
-    raw_dir = Path("data/lerobot-raw/pusht_raw")
+    raw_dir = Path("data/pusht")
     for mode in modes:
         if mode in ["image", "keypoints"]:
             repo_id += f"_{mode}"

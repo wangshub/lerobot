@@ -23,6 +23,8 @@ DEFAULT_HEAD_JOINT_NAMES = [
     "head_yaw", "head_pitch"
 ]
 
+DEFAULT_JOINT_NAMES = DEFAULT_LEG_JOINT_NAMES + DEFAULT_ARM_JOINT_NAMES + DEFAULT_HEAD_JOINT_NAMES
+
 DEFAULT_JOINT_NAMES = {
     "full_joint_names": DEFAULT_LEG_JOINT_NAMES + DEFAULT_ARM_JOINT_NAMES + DEFAULT_HEAD_JOINT_NAMES,
     "leg_joint_names": DEFAULT_LEG_JOINT_NAMES,
@@ -189,12 +191,12 @@ class KuavoRosbagReader:
         }
         for camera in DEFAULT_CAMERA_NAMES:
             # observation.images.{camera}.depth  => color images
-            self._topic_process_map[f"observation.{camera}"] = {
+            self._topic_process_map[f"{camera}"] = {
                 "topic": f"/{camera}/color/image_raw",
                 "msg_process_fn": self._msg_processer.process_color_image,
             }
             # observation.images.{camera}.depth => depth images
-            self._topic_process_map[f"observation.{camera}.depth"] = {
+            self._topic_process_map[f"{camera}.depth"] = {
                 "topic": f"/{camera}/depth/image_rect_raw",
                 "msg_process_fn": self._msg_processer.process_depth_image,
             }
@@ -229,7 +231,7 @@ class KuavoRosbagReader:
         data_aligned = self.align_frame_data(data)
         return data_aligned
     
-    def align_frame_data(self, data: dict, ref_key="observation.camera"):
+    def align_frame_data(self, data: dict, ref_key="camera"):
         """数据帧率对齐，高频关节和动作数据向底盘摄像头数据对齐"""
         # 以 observation.camera 的帧数作为对齐的标准
         
