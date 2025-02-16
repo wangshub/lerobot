@@ -30,7 +30,7 @@ from lerobot.common.datasets.video_utils import (
     encode_video_frames
 )
 
-from kuavo_dataset import KuavoRosbagReader
+from .kuavo_dataset import KuavoRosbagReader
 
 
 def get_cameras(bag_data: dict) -> list[str]:
@@ -163,21 +163,35 @@ def to_hf_dataset(data_dict, video) -> Dataset:
     hf_dataset.set_transform(hf_transform_to_torch)
     return hf_dataset
 
-    
-    
-
 def from_raw_to_lerobot_format(
     raw_dir: Path,
     videos_dir: Path,
-    cfg: Dict,
-    video: bool = True,
+    # cfg: Dict,
     fps: int | None = None,
+    video: bool = True,
     episodes: list[int] | None = None,
     encoding: dict | None = None,
 ):
     """Convert dataset from original raw format to LeRobot format.
     """
-    pass
+    # sanity check
+    check_format(raw_dir)
+    
+    if fps is None:
+        fps = 30
+    
+    data_dict = load_from_raw(raw_dir, videos_dir, fps, video, episodes, encoding)
+    hf_dataset = to_hf_dataset(data_dict, video)
+    episode_data_index = calculate_episode_data_index(hf_dataset)
+    info = {
+        "codebase_version": CODEBASE_VERSION,
+        "fps": fps,
+        "video": video,
+    }
+    if video:
+        info["encoding"] = get_default_encoding()
+    
+    return hf_dataset, episode_data_index, info
 
 
 
